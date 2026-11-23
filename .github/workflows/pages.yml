@@ -31,6 +31,8 @@ jobs:
           SHEET_CSV_URL: ${{ secrets.SHEET_CSV_URL }}
           FORM_URL: ${{ vars.FORM_URL }}
           BLOG_URL: ${{ vars.BLOG_URL }}
+          ABOUT_VIDEO_URL: ${{ vars.ABOUT_VIDEO_URL }}
+          SITE_URL: ${{ vars.SITE_URL }}
           GOATCOUNTER_URL: ${{ vars.GOATCOUNTER_URL }}
         run: make build-live
       - uses: actions/configure-pages@v5
