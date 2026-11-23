@@ -22,7 +22,9 @@ make serve    # build from data/sample.csv (fake data) and serve on http://local
 make test
 ```
 
-To build from the real sheet locally, put `SHEET_CSV_URL=...` in a git-ignored `.env` and run `make serve-live`.
+To build from the real sheet locally, put `SHEET_CSV_URL=...` (and optionally `FORM_URL`, `BLOG_URL`, `GOATCOUNTER_URL`) in a git-ignored `.env` and run `make serve-live`. The script reads `.env` itself, so no quoting is needed; real environment variables take precedence.
+
+**Local and CI run the same commands.** The workflow runs `make test` and `make build-live`, nothing else. Locally, the same commands read `.env` instead of GitHub's secrets. If CI breaks, reproduce it with `make test && make build-live`.
 
 ## Sheet format
 

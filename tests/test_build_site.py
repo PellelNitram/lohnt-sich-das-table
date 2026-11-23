@@ -119,6 +119,26 @@ class Validation(unittest.TestCase):
         self.assertNotIn("secret@example.com", b.build_csv(entries))
 
 
+class DotEnv(unittest.TestCase):
+    def load(self, text: str) -> dict:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".env"
+            path.write_text(text, encoding="utf-8")
+            return b.load_dotenv(path)
+
+    def test_url_with_ampersands_unquoted_and_quoted(self):
+        url = "https://example.com/pub?gid=1&single=true&output=csv"
+        self.assertEqual(self.load(f"SHEET_CSV_URL={url}\n")["SHEET_CSV_URL"], url)
+        self.assertEqual(self.load(f"SHEET_CSV_URL='{url}'\n")["SHEET_CSV_URL"], url)
+        self.assertEqual(self.load(f'SHEET_CSV_URL="{url}"\n')["SHEET_CSV_URL"], url)
+
+    def test_comments_blank_lines_and_export(self):
+        self.assertEqual(self.load("# c\n\nexport A=1\nB = 2\nnoequals\n"), {"A": "1", "B": "2"})
+
+    def test_missing_file(self):
+        self.assertEqual(b.load_dotenv(Path("/nonexistent/.env")), {})
+
+
 class Output(unittest.TestCase):
     def test_html_is_escaped(self):
         entries, _ = b.load_entries(sheet(line('"<script>alert(1)</script>"')), TODAY)

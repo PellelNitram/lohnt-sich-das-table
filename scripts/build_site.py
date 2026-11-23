@@ -418,7 +418,28 @@ def build(source: str, out: Path, *, sample: bool) -> None:
     )
 
 
+def load_dotenv(path: Path) -> dict[str, str]:
+    """Parse KEY=VALUE lines. No shell involved, so `&` etc. in URLs are safe unquoted."""
+    values: dict[str, str] = {}
+    if not path.is_file():
+        return values
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.removeprefix("export ").strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        values[key] = value
+    return values
+
+
 def main() -> None:
+    # Local runs read ./.env; CI sets real environment variables. Real env vars win.
+    for key, value in load_dotenv(ROOT / ".env").items():
+        os.environ.setdefault(key, value)
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--source",

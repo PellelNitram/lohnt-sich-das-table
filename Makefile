@@ -6,8 +6,8 @@ build: ## Build ./dist from data/sample.csv (fake data, safe for local work)
 	@$(PYTHON) scripts/build_site.py --sample
 
 .PHONY: build-live
-build-live: ## Build ./dist from the real sheet (needs SHEET_CSV_URL, e.g. in .env)
-	@set -a; [ -f .env ] && . ./.env; set +a; $(PYTHON) scripts/build_site.py
+build-live: ## Build ./dist from the real sheet (SHEET_CSV_URL from env or .env). CI runs exactly this.
+	@$(PYTHON) scripts/build_site.py
 
 .PHONY: serve
 serve: build ## Build with sample data and serve on http://localhost:$(PORT)
@@ -20,7 +20,7 @@ serve-live: build-live ## Build with the real sheet and serve on http://localhos
 	@cd dist && $(PYTHON) -m http.server $(PORT)
 
 .PHONY: test
-test: ## Run the unit tests
+test: ## Run the unit tests. CI runs exactly this.
 	@$(PYTHON) -m unittest discover -s tests -v
 
 .PHONY: clean
