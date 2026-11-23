@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lohnt sich das? – Gehaltstabelle</title>
+<meta name="description" content="Gehälter aus der Community, geprüft und frei zugänglich: Beruf, Brutto und Netto pro Monat – als Tabelle und als offene JSON-API.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap nav">
+    <a class="brand" href="/">Lohnt sich das<span>?</span></a>
+    <nav class="nav-links">
+      <a class="link" href="#tabelle">Tabelle</a>
+      <a class="link" href="#methode">Methode</a>
+      <a class="link" href="#api">API</a>
+      ${blog_link}
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <h1>Was verdient man wirklich<span>?</span></h1>
+      <p class="sub">Brutto und Netto pro Monat, eingereicht von der Community und von Hand geprüft. Offen für alle – auch als API.</p>
+      <span class="live"><span class="dot"></span> Stand: <strong>${last_update}</strong> · ${count} Einträge</span>
+      <p>${submit_button}</p>
+    </div>
+  </section>
+
+  <section class="wrap" id="tabelle">
+    ${sample_banner}
+    <div class="stats">
+      <div class="stat"><div class="big">${count}</div><div class="lbl">geprüfte Einträge</div></div>
+      <div class="stat"><div class="big">${median_gross}</div><div class="lbl">Median Brutto / Monat</div></div>
+      <div class="stat"><div class="big">${median_net}</div><div class="lbl">Median Netto / Monat</div></div>
+    </div>
+
+    <div class="controls">
+      <input type="search" id="search" placeholder="Beruf suchen …" aria-label="Beruf suchen">
+    </div>
+
+    <div class="table-card">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th data-key="profession">Beruf <span class="arrow"></span></th>
+            <th data-key="gross" class="num">Brutto / Monat <span class="arrow"></span></th>
+            <th data-key="net" class="num">Netto / Monat <span class="arrow"></span></th>
+            <th>Video</th>
+            <th data-key="date" class="num sorted">Video vom <span class="arrow">▼</span></th>
+          </tr>
+        </thead>
+        <tbody>
+${rows}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="prose" id="methode">
+    <div class="wrap">
+      <h2>Methode</h2>
+      <ul>
+        <li>Einträge kommen über ein öffentliches Formular und sind <strong>selbst berichtet</strong>. Ein „Beleg“-Link verweist auf die Stelle, an der die Zahl belegt wird; wir prüfen ihn nicht auf Echtheit.</li>
+        <li>Jeder Eintrag wird <strong>von Hand freigegeben</strong>, bevor er hier erscheint. Das passiert in Abständen von ein paar Tagen bis Wochen.</li>
+        <li>Die Seite wird einmal pro Woche neu gebaut.</li>
+        <li>Veröffentlicht werden nur die Felder in der Tabelle. Zeitpunkt der Einreichung und weitere Formularangaben bleiben privat.</li>
+        <li>Die Zahlen sind nicht repräsentativ und keine Berufs- oder Anlageberatung.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="prose" id="api">
+    <div class="wrap">
+      <h2>Offene API</h2>
+      <p>Alle Daten gibt es als statische Dateien, ohne Anmeldung und ohne Rate-Limit. Aktuelle Schema-Version: <code>${schema_version}</code>.</p>
+      <ul class="endpoints">
+        <li><a href="/api/v${schema_version}/data.json"><code class="api">GET /api/v${schema_version}/data.json</code></a> alle Einträge als JSON</li>
+        <li><a href="/api/v${schema_version}/data.csv"><code class="api">GET /api/v${schema_version}/data.csv</code></a> dieselben Daten als CSV</li>
+        <li><a href="/api/v${schema_version}/schema.json"><code class="api">GET /api/v${schema_version}/schema.json</code></a> JSON Schema der Antwort</li>
+      </ul>
+      <p>Die Antwort von <code>data.json</code> hat die Felder <code>schema_version</code>, <code>generated_at</code>, <code>count</code> und <code>entries</code>. Jeder Eintrag in <code>entries</code> (maschinenlesbar in <a href="/api/v${schema_version}/schema.json">schema.json</a>):</p>
+      <div class="table-card">
+        <table class="fields">
+          <thead><tr><th>Feld</th><th>Typ</th><th>Beschreibung</th></tr></thead>
+          <tbody>
+${field_table}
+          </tbody>
+        </table>
+      </div>
+      <p class="muted">Die Version steht im Feld <code>schema_version</code> und im Pfad. Änderungen, die bestehende Felder brechen, erhöhen sie. Neue Felder können jederzeit hinzukommen.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    Zuletzt gebaut am ${built_at} · Letzter geprüfter Eintrag: ${last_update}<br>
+    Selbst berichtete Daten, keine Berufs- oder Anlageberatung.
+  </div>
+</footer>
+
+<script src="/app.js" defer></script>
+${goatcounter}
+</body>
+</html>

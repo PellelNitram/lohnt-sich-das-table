@@ -1,0 +1,7 @@
+submitted_at,video_url,video_date,profession,gross_monthly_income_eur,net_monthly_income_eur,gross_income_proof_url,net_income_proof_url,approved
+2026-10-01 09:12:44,https://www.youtube.com/watch?v=SAMPLE00001,2026-09-20,Beispiel-Pflegefachkraft,3800,2600,https://example.com/beleg-brutto,https://example.com/beleg-netto,2026-10-05
+2026-10-02 18:40:03,https://youtu.be/SAMPLE00002,2026-09-27,Beispiel-Softwareentwicklerin,"6.200,50","3.900",,,2026-10-05
+2026-10-08 07:55:21,https://www.youtube.com/watch?v=SAMPLE00003,2026-10-04,Beispiel-Elektriker,,2450,,https://example.com/beleg-netto,2026-10-12
+2026-10-14 12:00:00,https://www.youtube.com/watch?v=SAMPLE00004,2026-10-11,Beispiel-Lehrkraft,5100,3400,,,2026-11-02
+2026-11-03 20:15:09,https://www.youtube.com/watch?v=SAMPLE00005,2026-10-25,Noch nicht geprüft,9999,5000,,,
+2026-11-04 08:01:30,https://www.youtube.com/watch?v=SAMPLE00006,2026-10-30,Ungültig (Netto > Brutto),2000,3000,,,2026-11-10

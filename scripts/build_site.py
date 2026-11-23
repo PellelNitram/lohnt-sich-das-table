@@ -1,0 +1,439 @@
+#!/usr/bin/env python3
+"""Build the static site and the static JSON/CSV API into ./dist.
+
+Pipeline:  Google Form -> Google Sheet -> (published CSV) -> this script -> dist/
+
+Only rows whose `approved` column holds a valid, non-future date are published.
+Everything else (including all properties not listed in schema/schema.json) is dropped, because
+this repository and the generated site are public.
+
+Standard library only, so it runs anywhere with Python >= 3.10.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import hashlib
+import html
+import io
+import json
+import math
+import os
+import re
+import shutil
+import sys
+import urllib.error
+import urllib.request
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
+from pathlib import Path
+from statistics import median
+from string import Template
+
+ROOT = Path(__file__).resolve().parent.parent
+SRC = ROOT / "src"
+DIST = ROOT / "dist"
+
+MAX_DOWNLOAD_BYTES = 5 * 1024 * 1024
+MAX_INCOME_EUR = 1_000_000
+MAX_PROFESSION_LEN = 80
+MAX_URL_LEN = 500
+ALLOWED_VIDEO_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"}
+
+# Column headers the Google Sheet must have (first row). Extra columns, such as
+# e-mail addresses collected by a Form, are ignored and never published.
+REQUIRED_COLUMNS = (
+    "submitted_at",
+    "video_url",
+    "video_date",
+    "profession",
+    "gross_monthly_income_eur",
+    "net_monthly_income_eur",
+    "gross_income_proof_url",
+    "net_income_proof_url",
+    "approved",
+)
+
+# schema/schema.json is the single source of truth for the public API payload.
+# It is published as /api/v<version>/schema.json and drives the CSV columns and the field
+# table on the website. docs/api.md must stay in sync (see tests).
+SCHEMA_PATH = ROOT / "schema" / "schema.json"
+SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+SCHEMA_VERSION = SCHEMA["properties"]["schema_version"]["const"]
+ENTRY_PROPS = SCHEMA["$defs"]["entry"]["properties"]
+FIELD_NAMES = list(ENTRY_PROPS)
+
+
+class RowError(ValueError):
+    """An approved row that is malformed and therefore skipped."""
+
+
+@dataclass(frozen=True)
+class Entry:
+    id: str
+    video_url: str
+    video_date: date
+    profession: str
+    gross_monthly_income_eur: float | int | None
+    net_monthly_income_eur: float | int | None
+    gross_income_proof_url: str | None
+    net_income_proof_url: str | None
+    approved_at: date
+
+    def to_dict(self) -> dict:
+        d = {name: getattr(self, name) for name in FIELD_NAMES}
+        d["video_date"] = self.video_date.isoformat()
+        d["approved_at"] = self.approved_at.isoformat()
+        return d
+
+
+# --------------------------------------------------------------------------- parsing
+
+_PLAIN_NUMBER = re.compile(r"^\d+(\.\d+)?$")
+_DE_THOUSANDS = re.compile(r"^\d{1,3}(\.\d{3})+$")
+_ISO_DATE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})(?:[ T].*)?$")
+_DE_DATE = re.compile(r"^(\d{1,2})\.(\d{1,2})\.(\d{4})$")
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def parse_number(raw: str) -> float | int | None:
+    """Parse '3500', '3500.5', '3.500', '3.500,50' or '3500 €'. Empty -> None."""
+    s = raw.replace("€", "").replace(" ", "").replace(" ", "")
+    if not s:
+        return None
+    if "," in s:
+        s = s.replace(".", "").replace(",", ".")
+    elif _DE_THOUSANDS.match(s):
+        s = s.replace(".", "")
+    if not _PLAIN_NUMBER.match(s):
+        raise RowError(f"not a number: {raw!r}")
+    value = float(s)
+    if not math.isfinite(value) or not 0 < value <= MAX_INCOME_EUR:
+        raise RowError(f"income out of range: {raw!r}")
+    value = round(value, 2)
+    return int(value) if value.is_integer() else value
+
+
+def parse_date(raw: str) -> date:
+    s = raw.strip()
+    try:
+        if m := _ISO_DATE.match(s):
+            return date(int(m[1]), int(m[2]), int(m[3]))
+        if m := _DE_DATE.match(s):
+            return date(int(m[3]), int(m[2]), int(m[1]))
+    except ValueError:
+        pass
+    raise RowError(f"not a valid date: {raw!r}")
+
+
+def clean_text(raw: str) -> str:
+    return " ".join(_CONTROL_CHARS.sub(" ", raw).split())
+
+
+def _clean_https_url(raw: str, label: str) -> str | None:
+    s = raw.strip()
+    if not s:
+        return None
+    if len(s) > MAX_URL_LEN or any(c.isspace() or ord(c) < 32 for c in s):
+        raise RowError(f"{label} is not a valid https link")
+    m = re.match(r"^https://([^/?#]+)(?:[/?#].*)?$", s)
+    if not m or "@" in m[1]:
+        raise RowError(f"{label} must be an https link without credentials")
+    return s
+
+
+def clean_video_url(raw: str) -> str:
+    s = _clean_https_url(raw, "video_url")
+    if s is None:
+        raise RowError("video_url is empty")
+    host = re.match(r"^https://([^/?#:]+)", s)[1].lower()
+    if host not in ALLOWED_VIDEO_HOSTS:
+        raise RowError("video_url must be a YouTube link")
+    return s
+
+
+def clean_proof_url(raw: str, label: str) -> str | None:
+    return _clean_https_url(raw, label)
+
+
+def parse_row(row: dict[str, str], today: date) -> Entry | None:
+    """Return an Entry, None if not approved, or raise RowError if malformed."""
+    approved_raw = (row.get("approved") or "").strip()
+    if not approved_raw:
+        return None  # not approved -> never rendered, never inspected further
+    approved_at = parse_date(approved_raw)
+    if approved_at > today:
+        raise RowError("approval date is in the future")
+
+    profession = clean_text(row.get("profession") or "")
+    if not profession:
+        raise RowError("profession is empty")
+    if len(profession) > MAX_PROFESSION_LEN:
+        raise RowError(f"profession longer than {MAX_PROFESSION_LEN} characters")
+
+    video_url = clean_video_url(row.get("video_url") or "")
+    video_date = parse_date(row.get("video_date") or "")
+    if video_date > today:
+        raise RowError("video_date is in the future")
+
+    gross = parse_number(row.get("gross_monthly_income_eur") or "")
+    net = parse_number(row.get("net_monthly_income_eur") or "")
+    if gross is None and net is None:
+        raise RowError("neither gross nor net income given")
+    if gross is not None and net is not None and net > gross:
+        raise RowError("net income exceeds gross income")
+
+    submitted_at = (row.get("submitted_at") or "").strip()
+    digest = hashlib.sha1(
+        f"{submitted_at}|{video_url}|{profession}|{gross}|{net}".encode()
+    ).hexdigest()
+    return Entry(
+        id=digest[:12],
+        video_url=video_url,
+        video_date=video_date,
+        profession=profession,
+        gross_monthly_income_eur=gross,
+        net_monthly_income_eur=net,
+        gross_income_proof_url=clean_proof_url(row.get("gross_income_proof_url") or "", "gross_income_proof_url"),
+        net_income_proof_url=clean_proof_url(row.get("net_income_proof_url") or "", "net_income_proof_url"),
+        approved_at=approved_at,
+    )
+
+
+def load_entries(csv_text: str, today: date) -> tuple[list[Entry], dict]:
+    reader = csv.DictReader(io.StringIO(csv_text))
+    headers = [h.strip().lower() for h in (reader.fieldnames or [])]
+    missing = [c for c in REQUIRED_COLUMNS if c not in headers]
+    if missing:
+        raise SystemExit(f"error: sheet is missing required column(s): {', '.join(missing)}")
+    reader.fieldnames = headers
+
+    entries: dict[str, Entry] = {}
+    stats = {"rows": 0, "unapproved": 0, "invalid": 0, "duplicate": 0}
+    for line_no, row in enumerate(reader, start=2):
+        stats["rows"] += 1
+        try:
+            entry = parse_row(row, today)
+        except RowError as exc:
+            stats["invalid"] += 1
+            print(f"warning: sheet row {line_no} skipped: {exc}", file=sys.stderr)
+            continue
+        if entry is None:
+            stats["unapproved"] += 1
+        elif entry.id in entries:
+            stats["duplicate"] += 1
+        else:
+            entries[entry.id] = entry
+
+    ordered = sorted(entries.values(), key=lambda e: (e.video_date, e.id), reverse=True)
+    return ordered, stats
+
+
+def read_source(source: str) -> str:
+    if source.startswith("http://"):
+        raise SystemExit("error: refusing to download data over plain http")
+    if source.startswith("https://"):
+        req = urllib.request.Request(source, headers={"User-Agent": "lohnt-sich-das-table-build"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                raw = resp.read(MAX_DOWNLOAD_BYTES + 1)
+        except urllib.error.HTTPError as exc:  # message deliberately omits the URL
+            raise SystemExit(f"error: downloading the sheet failed (HTTP {exc.code})")
+        except (urllib.error.URLError, TimeoutError) as exc:
+            raise SystemExit(f"error: downloading the sheet failed ({type(exc).__name__})")
+    else:
+        raw = Path(source).read_bytes()
+    if len(raw) > MAX_DOWNLOAD_BYTES:
+        raise SystemExit("error: sheet is larger than the 5 MB limit")
+    return raw.decode("utf-8-sig")
+
+
+# --------------------------------------------------------------------------- output
+
+def build_payload(entries: list[Entry], now: datetime) -> dict:
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "count": len(entries),
+        "entries": [e.to_dict() for e in entries],
+    }
+
+
+def _csv_safe(value) -> str:
+    s = "" if value is None else str(value)
+    return "'" + s if s[:1] in ("=", "+", "-", "@") else s  # spreadsheet formula injection
+
+
+def build_csv(entries: list[Entry]) -> str:
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\n")
+    writer.writerow(FIELD_NAMES)
+    for e in entries:
+        d = e.to_dict()
+        writer.writerow([_csv_safe(d[name]) for name in FIELD_NAMES])
+    return buf.getvalue()
+
+
+def fmt_eur(value: float | int | None) -> str:
+    if value is None:
+        return "–"
+    return f"{value:,.0f}".replace(",", ".") + " €"
+
+
+def fmt_date(d: date) -> str:
+    return d.strftime("%d.%m.%Y")
+
+
+def _https_or_empty(url: str) -> str:
+    url = (url or "").strip()
+    return url if url.startswith("https://") else ""
+
+
+def _link(url: str, label: str) -> str:
+    return f'<a href="{html.escape(url, quote=True)}" rel="noopener nofollow ugc" target="_blank">{label}</a>'
+
+
+def _income_cell(value: float | int | None, proof_url: str | None) -> str:
+    proof = f' <small>{_link(proof_url, "Beleg ↗")}</small>' if proof_url else ""
+    return f'<td class="num">{fmt_eur(value)}{proof}</td>'
+
+
+def render_rows(entries: list[Entry]) -> str:
+    if not entries:
+        return '<tr class="empty"><td colspan="5">Noch keine geprüften Einträge.</td></tr>'
+    esc = html.escape
+    rows = []
+    for e in entries:
+        rows.append(
+            f'<tr data-profession="{esc(e.profession.lower(), quote=True)}"'
+            f' data-gross="{e.gross_monthly_income_eur or ""}"'
+            f' data-net="{e.net_monthly_income_eur or ""}"'
+            f' data-date="{e.video_date.isoformat()}">'
+            f'<td class="beruf">{esc(e.profession)}</td>'
+            f"{_income_cell(e.gross_monthly_income_eur, e.gross_income_proof_url)}"
+            f"{_income_cell(e.net_monthly_income_eur, e.net_income_proof_url)}"
+            f"<td>{_link(e.video_url, 'Video ↗')}</td>"
+            f'<td class="num">{fmt_date(e.video_date)}</td></tr>'
+        )
+    return "\n".join(rows)
+
+
+def _type_label(prop: dict) -> str:
+    t = prop["type"]
+    label = " | ".join(t) if isinstance(t, list) else t
+    return f"{label} ({prop['format']})" if "format" in prop else label
+
+
+def render_field_table() -> str:
+    esc = html.escape
+    rows = []
+    for name, prop in ENTRY_PROPS.items():
+        rows.append(
+            f"<tr><td><code>{esc(name)}</code></td><td>{esc(_type_label(prop))}</td>"
+            f"<td>{esc(prop['description'])}</td></tr>"
+        )
+    return "\n".join(rows)
+
+
+def render_index(entries: list[Entry], now: datetime, *, sample: bool) -> str:
+    esc = html.escape
+    gross = [e.gross_monthly_income_eur for e in entries if e.gross_monthly_income_eur is not None]
+    net = [e.net_monthly_income_eur for e in entries if e.net_monthly_income_eur is not None]
+    last_update = max((e.approved_at for e in entries), default=None)
+
+    form_url = _https_or_empty(os.environ.get("FORM_URL", ""))
+    blog_url = _https_or_empty(os.environ.get("BLOG_URL", ""))
+    gc_url = _https_or_empty(os.environ.get("GOATCOUNTER_URL", ""))
+
+    submit_button = (
+        f'<a class="btn" href="{esc(form_url, quote=True)}" target="_blank" rel="noopener">Eigenen Eintrag einreichen ↗</a>'
+        if form_url
+        else ""
+    )
+    blog_link = (
+        f'<a class="link" href="{esc(blog_url, quote=True)}">Blog ↗</a>' if blog_url else ""
+    )
+    goatcounter = (
+        f'<script data-goatcounter="{esc(gc_url, quote=True)}" async src="//gc.zgo.at/count.js"></script>'
+        if gc_url
+        else ""
+    )
+    sample_banner = (
+        '<p class="note"><strong>Beispieldaten.</strong> Dieser Build nutzt <code>data/sample.csv</code> '
+        "und enthält erfundene Zahlen.</p>"
+        if sample
+        else ""
+    )
+
+    template = Template((SRC / "index.html").read_text(encoding="utf-8"))
+    return template.substitute(
+        rows=render_rows(entries),
+        field_table=render_field_table(),
+        count=len(entries),
+        median_gross=fmt_eur(median(gross)) if gross else "–",
+        median_net=fmt_eur(median(net)) if net else "–",
+        last_update=fmt_date(last_update) if last_update else "–",
+        built_at=now.strftime("%d.%m.%Y"),
+        submit_button=submit_button,
+        blog_link=blog_link,
+        goatcounter=goatcounter,
+        sample_banner=sample_banner,
+        schema_version=SCHEMA_VERSION,
+    )
+
+
+def write(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def build(source: str, out: Path, *, sample: bool) -> None:
+    now = datetime.now(timezone.utc)
+    entries, stats = load_entries(read_source(source), now.date())
+
+    if out.exists():
+        shutil.rmtree(out)
+    out.mkdir(parents=True)
+
+    for static in (SRC / "static").iterdir():
+        shutil.copy2(static, out / static.name)
+    if (ROOT / "CNAME").exists():
+        shutil.copy2(ROOT / "CNAME", out / "CNAME")
+    write(out / ".nojekyll", "")
+
+    write(out / "index.html", render_index(entries, now, sample=sample))
+    api = out / "api" / f"v{SCHEMA_VERSION}"  # the version lives only in the schema file
+    write(
+        api / "data.json",
+        json.dumps(build_payload(entries, now), ensure_ascii=False, indent=2) + "\n",
+    )
+    write(api / "data.csv", build_csv(entries))
+    shutil.copy2(SCHEMA_PATH, api / "schema.json")
+
+    print(
+        f"built {out}: {len(entries)} published of {stats['rows']} rows "
+        f"({stats['unapproved']} unapproved, {stats['invalid']} invalid, "
+        f"{stats['duplicate']} duplicate)"
+    )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--source",
+        default=os.environ.get("SHEET_CSV_URL"),
+        help="CSV file or https URL (default: $SHEET_CSV_URL)",
+    )
+    parser.add_argument("--sample", action="store_true", help="build from data/sample.csv and mark the page as sample data")
+    parser.add_argument("--out", type=Path, default=DIST)
+    args = parser.parse_args()
+
+    source = str(ROOT / "data" / "sample.csv") if args.sample else args.source
+    if not source:
+        raise SystemExit("error: no data source. Set SHEET_CSV_URL or pass --sample / --source.")
+    build(source, args.out, sample=args.sample)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Lohnt sich das? salary entries, data version 1",
+  "description": "Response of /api/v1/data.json. Source of truth for the API: the build, the CSV columns, the field table on the website and docs/api.md all derive from or are checked against this file.",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "count", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1",
+      "description": "Data version. Bumped (and published under a new /api/vN/ path) only for breaking changes."
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC time the site was built."
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of items in entries."
+    },
+    "entries": {
+      "type": "array",
+      "description": "Sorted by video_date, newest first.",
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "description": "One approved salary entry. At least one of gross_monthly_income_eur and net_monthly_income_eur is set; if both are set, net is not larger than gross.",
+      "required": [
+        "id",
+        "video_url",
+        "video_date",
+        "profession",
+        "gross_monthly_income_eur",
+        "net_monthly_income_eur",
+        "gross_income_proof_url",
+        "net_income_proof_url",
+        "approved_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{12}$",
+          "description": "Stable 12-character identifier derived from the submission."
+        },
+        "video_url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://(www\\.|m\\.)?(youtube\\.com|youtu\\.be)/",
+          "description": "https link to the YouTube video the entry is taken from."
+        },
+        "video_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Publication date of the video (YYYY-MM-DD)."
+        },
+        "profession": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Profession title: the primary profession or job featured in the video."
+        },
+        "gross_monthly_income_eur": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "maximum": 1000000,
+          "description": "Gross monthly income in euros; null if not stated."
+        },
+        "net_monthly_income_eur": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "maximum": 1000000,
+          "description": "Net monthly income in euros; null if not stated."
+        },
+        "gross_income_proof_url": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "pattern": "^https://",
+          "description": "https link to evidence for the gross income (e.g. video timestamp, payslip page); null if none given."
+        },
+        "net_income_proof_url": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "pattern": "^https://",
+          "description": "https link to evidence for the net income; null if none given."
+        },
+        "approved_at": {
+          "type": "string",
+          "format": "date",
+          "description": "Date (YYYY-MM-DD) the entry was manually approved for publication."
+        }
+      }
+    }
+  }
+}
