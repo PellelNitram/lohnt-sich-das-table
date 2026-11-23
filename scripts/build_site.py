@@ -298,6 +298,85 @@ def _https_or_empty(url: str) -> str:
     return url if url.startswith("https://") else ""
 
 
+_DOMAIN = re.compile(r"^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$")
+PAGE_TITLE = "Lohnt sich das? – Gehaltstabelle"
+PAGE_DESCRIPTION = (
+    "Gehälter aus der Community, geprüft und frei zugänglich: Beruf, Brutto und Netto pro Monat "
+    "– als Tabelle und als offene JSON-API."
+)
+
+
+def site_url() -> str:
+    """Absolute site URL without trailing slash: $SITE_URL, else derived from ./CNAME, else ''."""
+    env = _https_or_empty(os.environ.get("SITE_URL", "")).rstrip("/")
+    if env:
+        return env
+    cname = ROOT / "CNAME"
+    if cname.is_file():
+        domain = cname.read_text(encoding="utf-8").strip().lower()
+        if _DOMAIN.match(domain):
+            return f"https://{domain}"
+    return ""
+
+
+def render_meta_tags(base: str) -> str:
+    esc = lambda v: html.escape(v, quote=True)  # noqa: E731
+    tags = [
+        '<meta property="og:type" content="website">',
+        '<meta property="og:locale" content="de_DE">',
+        '<meta property="og:site_name" content="Lohnt sich das?">',
+        f'<meta property="og:title" content="{esc(PAGE_TITLE)}">',
+        f'<meta property="og:description" content="{esc(PAGE_DESCRIPTION)}">',
+        f'<meta name="twitter:card" content="{"summary_large_image" if base else "summary"}">',
+        f'<meta name="twitter:title" content="{esc(PAGE_TITLE)}">',
+        f'<meta name="twitter:description" content="{esc(PAGE_DESCRIPTION)}">',
+    ]
+    if base:  # og:image and og:url must be absolute
+        tags += [
+            f'<link rel="canonical" href="{esc(base)}/">',
+            f'<meta property="og:url" content="{esc(base)}/">',
+            f'<meta property="og:image" content="{esc(base)}/og-image.png">',
+            '<meta property="og:image:width" content="1200">',
+            '<meta property="og:image:height" content="630">',
+            '<meta property="og:image:alt" content="Lohnt sich das? – Was verdient man wirklich?">',
+            f'<meta name="twitter:image" content="{esc(base)}/og-image.png">',
+        ]
+    return "\n".join(tags)
+
+
+def render_robots(base: str) -> str:
+    lines = ["User-agent: *", "Allow: /"]
+    if base:
+        lines += ["", f"Sitemap: {base}/sitemap.xml"]
+    return "\n".join(lines) + "\n"
+
+
+def render_sitemap(base: str, lastmod: date) -> str:
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"  <url>\n    <loc>{html.escape(base)}/</loc>\n    <lastmod>{lastmod.isoformat()}</lastmod>\n  </url>\n"
+        "</urlset>\n"
+    )
+
+
+def _about_section(raw_url: str) -> str:
+    raw_url = (raw_url or "").strip()
+    if not raw_url:
+        return ""
+    try:
+        url = clean_video_url(raw_url)
+    except RowError as exc:
+        print(f"warning: ABOUT_VIDEO_URL ignored: {exc}", file=sys.stderr)
+        return ""
+    return (
+        '<section class="prose" id="hintergrund"><div class="wrap">'
+        "<h2>Wie es dazu kam</h2>"
+        f"<p>Warum es diese Seite gibt, erkläre ich in einem Video: {_link(url, 'Video ansehen ↗')}</p>"
+        "</div></section>"
+    )
+
+
 def _link(url: str, label: str) -> str:
     return f'<a href="{html.escape(url, quote=True)}" rel="noopener nofollow ugc" target="_blank">{label}</a>'
 
@@ -367,6 +446,7 @@ def render_index(entries: list[Entry], now: datetime, *, sample: bool) -> str:
         if gc_url
         else ""
     )
+    footer_blog = f' · <a href="{esc(blog_url, quote=True)}">Mehr auf meinem Blog ↗</a>' if blog_url else ""
     sample_banner = (
         '<p class="note"><strong>Beispieldaten.</strong> Dieser Build nutzt <code>data/sample.csv</code> '
         "und enthält erfundene Zahlen.</p>"
@@ -388,6 +468,11 @@ def render_index(entries: list[Entry], now: datetime, *, sample: bool) -> str:
         goatcounter=goatcounter,
         sample_banner=sample_banner,
         schema_version=SCHEMA_VERSION,
+        meta_tags=render_meta_tags(site_url()),
+        about_section=_about_section(os.environ.get("ABOUT_VIDEO_URL", "")),
+        footer_blog=footer_blog,
+        page_title=html.escape(PAGE_TITLE),
+        page_description=html.escape(PAGE_DESCRIPTION, quote=True),
     )
 
 
@@ -411,6 +496,10 @@ def build(source: str, out: Path, *, sample: bool) -> None:
     write(out / ".nojekyll", "")
 
     write(out / "index.html", render_index(entries, now, sample=sample))
+    base = site_url()
+    write(out / "robots.txt", render_robots(base))
+    if base:
+        write(out / "sitemap.xml", render_sitemap(base, max((e.approved_at for e in entries), default=now.date())))
     api = out / "api" / f"v{SCHEMA_VERSION}"  # the version lives only in the schema file
     write(
         api / "data.json",

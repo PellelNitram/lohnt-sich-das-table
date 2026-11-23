@@ -22,7 +22,7 @@ make serve    # build from data/sample.csv (fake data) and serve on http://local
 make test
 ```
 
-To build from the real sheet locally, put `SHEET_CSV_URL=...` (and optionally `FORM_URL`, `BLOG_URL`, `GOATCOUNTER_URL`) in a git-ignored `.env` and run `make serve-live`. The script reads `.env` itself, so no quoting is needed; real environment variables take precedence.
+To build from the real sheet locally, put `SHEET_CSV_URL=...` (and optionally `FORM_URL`, `BLOG_URL`, `ABOUT_VIDEO_URL`, `GOATCOUNTER_URL`, `SITE_URL`) in a git-ignored `.env` and run `make serve-live`. The script reads `.env` itself, so no quoting is needed; real environment variables take precedence.
 
 **Local and CI run the same commands.** The workflow runs `make test` and `make build-live`, nothing else. Locally, the same commands read `.env` instead of GitHub's secrets. If CI breaks, reproduce it with `make test && make build-live`.
 
@@ -42,7 +42,12 @@ Google Forms names its first column `Timestamp`/`Zeitstempel`; rename the header
 1. **Sheet**: File → Share → Publish to web → the answers tab → CSV. Copy the URL. Anyone with this link can read the sheet, so keep it out of the repo.
 2. **Repo secrets/variables** (Settings → Secrets and variables → Actions):
    - secret `SHEET_CSV_URL` (required)
-   - variables `FORM_URL`, `BLOG_URL`, `GOATCOUNTER_URL` (optional; each hides its feature when unset)
+   - variables (all optional; each hides its feature when unset):
+     - `FORM_URL`: submit button
+     - `BLOG_URL`: blog link in header and footer
+     - `ABOUT_VIDEO_URL`: YouTube link for the "Wie es dazu kam" section
+     - `GOATCOUNTER_URL`: visitor counter, e.g. `https://<name>.goatcounter.com/count`
+     - `SITE_URL`: absolute site URL for the sitemap and Open Graph tags; defaults to the domain in `CNAME`
 3. **Pages**: Settings → Pages → Source: *GitHub Actions*.
 4. **Custom domain**: add a file named `CNAME` containing only the domain (e.g. `example.org`) to the repo root, create the DNS `CNAME` record pointing to `<user>.github.io`, then enable *Enforce HTTPS* in Pages settings. The build copies `CNAME` into `dist/`.
 
@@ -54,7 +59,7 @@ Data version 1. Defined in [schema/schema.json](schema/schema.json), documented 
 
 ```
 scripts/build_site.py   build pipeline (stdlib only)
-src/                    page template and static assets
+src/                    page template and static assets (incl. og-image.png for link previews)
 schema/schema.json      JSON Schema incl. the data version (source of truth for the API)
 data/sample.csv         fake data for local builds
 tests/                  unit tests (approval gate, validation, escaping, API shape)

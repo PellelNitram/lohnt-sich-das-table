@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lohnt sich das? – Gehaltstabelle</title>
-<meta name="description" content="Gehälter aus der Community, geprüft und frei zugänglich: Beruf, Brutto und Netto pro Monat – als Tabelle und als offene JSON-API.">
+<title>${page_title}</title>
+<meta name="description" content="${page_description}">
+${meta_tags}
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -62,6 +63,8 @@ ${rows}
     </div>
   </section>
 
+  ${about_section}
+
   <section class="prose" id="methode">
     <div class="wrap">
       <h2>Methode</h2>
@@ -101,7 +104,7 @@ ${field_table}
 <footer class="site">
   <div class="wrap">
     Zuletzt gebaut am ${built_at} · Letzter geprüfter Eintrag: ${last_update}<br>
-    Selbst berichtete Daten, keine Berufs- oder Anlageberatung.
+    Selbst berichtete Daten, keine Berufs- oder Anlageberatung.${footer_blog}
   </div>
 </footer>
 

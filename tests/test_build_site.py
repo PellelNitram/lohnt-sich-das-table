@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -161,6 +162,68 @@ class DotEnv(unittest.TestCase):
 
     def test_missing_file(self):
         self.assertEqual(b.load_dotenv(Path("/nonexistent/.env")), {})
+
+
+class Seo(unittest.TestCase):
+    def setUp(self):
+        self._env = dict(os.environ)
+        for k in ("SITE_URL", "BLOG_URL", "ABOUT_VIDEO_URL"):
+            os.environ.pop(k, None)
+
+    def tearDown(self):
+        os.environ.clear()
+        os.environ.update(self._env)
+
+    def test_site_url_from_env_and_cname(self):
+        os.environ["SITE_URL"] = "https://example.org/"
+        self.assertEqual(b.site_url(), "https://example.org")
+        os.environ["SITE_URL"] = "http://example.org"  # not https -> ignored
+        expected = (ROOT / "CNAME").read_text().strip() if (ROOT / "CNAME").exists() else None
+        self.assertEqual(b.site_url(), f"https://{expected}" if expected else "")
+
+    def test_meta_tags_with_and_without_base(self):
+        with_base = b.render_meta_tags("https://example.org")
+        for needle in ('property="og:image" content="https://example.org/og-image.png"',
+                       'property="og:url" content="https://example.org/"',
+                       'rel="canonical" href="https://example.org/"', "summary_large_image"):
+            self.assertIn(needle, with_base)
+        without = b.render_meta_tags("")
+        self.assertNotIn("og:image", without)
+        self.assertIn('name="twitter:card" content="summary"', without)
+
+    def test_robots_and_sitemap(self):
+        self.assertIn("Sitemap: https://example.org/sitemap.xml", b.render_robots("https://example.org"))
+        self.assertNotIn("Sitemap", b.render_robots(""))
+        xml = b.render_sitemap("https://example.org", date(2026, 11, 23))
+        self.assertIn("<loc>https://example.org/</loc>", xml)
+        self.assertIn("<lastmod>2026-11-23</lastmod>", xml)
+
+    def test_about_video_section(self):
+        self.assertEqual(b._about_section(""), "")
+        self.assertIn("https://youtu.be/abc", b._about_section("youtu.be/abc"))
+        for bad in ("https://evil.example/x", "javascript:alert(1)", "http://youtu.be/a"):
+            self.assertEqual(b._about_section(bad), "", bad)
+
+    def test_page_has_optional_links_only_when_configured(self):
+        now = datetime.now(timezone.utc)
+        page = b.render_index([], now, sample=False)
+        self.assertNotIn("Mehr auf meinem Blog", page)
+        self.assertNotIn("Wie es dazu kam", page)
+        os.environ["BLOG_URL"] = "https://blog.example.org/"
+        os.environ["ABOUT_VIDEO_URL"] = "https://youtu.be/abc"
+        page = b.render_index([], now, sample=False)
+        self.assertIn('href="https://blog.example.org/"', page)
+        self.assertIn("Wie es dazu kam", page)
+
+    def test_build_writes_robots_sitemap_and_og_image(self):
+        os.environ["SITE_URL"] = "https://example.org"
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "dist"
+            b.build(str(ROOT / "data" / "sample.csv"), out, sample=True)
+            self.assertIn("Sitemap: https://example.org/sitemap.xml", (out / "robots.txt").read_text())
+            self.assertIn("<loc>https://example.org/</loc>", (out / "sitemap.xml").read_text())
+            self.assertTrue((out / "og-image.png").read_bytes().startswith(b"\x89PNG"))
+            self.assertIn('og:image" content="https://example.org/og-image.png"', (out / "index.html").read_text())
 
 
 class Output(unittest.TestCase):
