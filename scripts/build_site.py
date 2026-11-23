@@ -25,6 +25,7 @@ import shutil
 import sys
 import urllib.error
 import urllib.request
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -360,14 +361,43 @@ def render_sitemap(base: str, lastmod: date) -> str:
     )
 
 
-def _about_section(raw_url: str) -> str:
+UTM_SOURCE = "lohntsichdas"
+UTM_MEDIUM = "referral"
+UTM_CAMPAIGN = "salary-table"
+
+
+def with_utm(url: str, content: str) -> str:
+    """Append UTM parameters so the blog's analytics can attribute visits to this site.
+
+    Existing query parameters and the fragment are kept. A URL that already carries
+    utm_* parameters is left untouched, so BLOG_URL can override the defaults.
+    """
+    parts = urlsplit(url)
+    query = parse_qsl(parts.query, keep_blank_values=True)
+    if any(key.startswith("utm_") for key, _ in query):
+        return url
+    query += [
+        ("utm_source", UTM_SOURCE),
+        ("utm_medium", UTM_MEDIUM),
+        ("utm_campaign", UTM_CAMPAIGN),
+        ("utm_content", content),
+    ]
+    return urlunsplit(parts._replace(query=urlencode(query)))
+
+
+def _about_video_url(raw_url: str) -> str:
     raw_url = (raw_url or "").strip()
     if not raw_url:
         return ""
     try:
-        url = clean_video_url(raw_url)
+        return clean_video_url(raw_url)
     except RowError as exc:
         print(f"warning: ABOUT_VIDEO_URL ignored: {exc}", file=sys.stderr)
+        return ""
+
+
+def _about_section(url: str) -> str:
+    if not url:
         return ""
     return (
         '<section class="prose" id="hintergrund"><div class="wrap">'
@@ -375,6 +405,12 @@ def _about_section(raw_url: str) -> str:
         f"<p>Warum es diese Seite gibt, erkläre ich in einem Video: {_link(url, 'Video ansehen ↗')}</p>"
         "</div></section>"
     )
+
+
+def _about_hero_link(url: str) -> str:
+    if not url:
+        return ""
+    return f'<p class="hero-about">{_link(url, "▶ Wie es dazu kam")}</p>'
 
 
 def _link(url: str, label: str) -> str:
@@ -439,14 +475,21 @@ def render_index(entries: list[Entry], now: datetime, *, sample: bool) -> str:
         else ""
     )
     blog_link = (
-        f'<a class="link" href="{esc(blog_url, quote=True)}">Blog ↗</a>' if blog_url else ""
+        f'<a class="link" href="{esc(with_utm(blog_url, "header"), quote=True)}">Blog ↗</a>'
+        if blog_url
+        else ""
     )
     goatcounter = (
         f'<script data-goatcounter="{esc(gc_url, quote=True)}" async src="//gc.zgo.at/count.js"></script>'
         if gc_url
         else ""
     )
-    footer_blog = f' · <a href="{esc(blog_url, quote=True)}">Mehr auf meinem Blog ↗</a>' if blog_url else ""
+    footer_blog = (
+        f' · <a href="{esc(with_utm(blog_url, "footer"), quote=True)}">Mehr auf meinem Blog ↗</a>'
+        if blog_url
+        else ""
+    )
+    about_url = _about_video_url(os.environ.get("ABOUT_VIDEO_URL", ""))
     sample_banner = (
         '<p class="note"><strong>Beispieldaten.</strong> Dieser Build nutzt <code>data/sample.csv</code> '
         "und enthält erfundene Zahlen.</p>"
@@ -469,7 +512,8 @@ def render_index(entries: list[Entry], now: datetime, *, sample: bool) -> str:
         sample_banner=sample_banner,
         schema_version=SCHEMA_VERSION,
         meta_tags=render_meta_tags(site_url()),
-        about_section=_about_section(os.environ.get("ABOUT_VIDEO_URL", "")),
+        about_section=_about_section(about_url),
+        about_hero_link=_about_hero_link(about_url),
         footer_blog=footer_blog,
         page_title=html.escape(PAGE_TITLE),
         page_description=html.escape(PAGE_DESCRIPTION, quote=True),

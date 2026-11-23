@@ -99,3 +99,6 @@ footer.site { border-top: 3px solid var(--yellow); background: var(--dark); padd
 }
 
 td small { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin-left: 4px; }
+
+.hero-about { margin: 14px 0 0; font-size: 14px; }
+.hero-about a { color: var(--yellow); }

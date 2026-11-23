@@ -198,11 +198,30 @@ class Seo(unittest.TestCase):
         self.assertIn("<loc>https://example.org/</loc>", xml)
         self.assertIn("<lastmod>2026-11-23</lastmod>", xml)
 
-    def test_about_video_section(self):
-        self.assertEqual(b._about_section(""), "")
-        self.assertIn("https://youtu.be/abc", b._about_section("youtu.be/abc"))
+    def test_about_video_url_and_section(self):
+        self.assertEqual(b._about_section(b._about_video_url("")), "")
+        url = b._about_video_url("youtu.be/abc")
+        self.assertEqual(url, "https://youtu.be/abc")
+        self.assertIn(url, b._about_section(url))
+        self.assertIn("Wie es dazu kam", b._about_hero_link(url))
         for bad in ("https://evil.example/x", "javascript:alert(1)", "http://youtu.be/a"):
-            self.assertEqual(b._about_section(bad), "", bad)
+            self.assertEqual(b._about_video_url(bad), "", bad)
+
+    def test_with_utm(self):
+        out = b.with_utm("https://lellep.xyz/blog/", "header")
+        self.assertEqual(out, "https://lellep.xyz/blog/?utm_source=lohntsichdas&utm_medium=referral"
+                              "&utm_campaign=salary-table&utm_content=header")
+        self.assertIn("?a=1&utm_source=", b.with_utm("https://x.org/p?a=1", "footer"))
+        self.assertTrue(b.with_utm("https://x.org/p#top", "footer").endswith("#top"))
+        custom = "https://x.org/p?utm_source=mine"
+        self.assertEqual(b.with_utm(custom, "header"), custom)
+
+    def test_blog_links_carry_utm_per_placement(self):
+        os.environ["BLOG_URL"] = "https://blog.example.org/"
+        page = b.render_index([], datetime.now(timezone.utc), sample=False)
+        self.assertIn("utm_content=header", page)
+        self.assertIn("utm_content=footer", page)
+        self.assertIn("utm_source=lohntsichdas&amp;utm_medium=referral", page)  # HTML-escaped
 
     def test_page_has_optional_links_only_when_configured(self):
         now = datetime.now(timezone.utc)
@@ -212,8 +231,9 @@ class Seo(unittest.TestCase):
         os.environ["BLOG_URL"] = "https://blog.example.org/"
         os.environ["ABOUT_VIDEO_URL"] = "https://youtu.be/abc"
         page = b.render_index([], now, sample=False)
-        self.assertIn('href="https://blog.example.org/"', page)
+        self.assertIn('href="https://blog.example.org/?utm_', page)
         self.assertIn("Wie es dazu kam", page)
+        self.assertIn('class="hero-about"', page)
 
     def test_build_writes_robots_sitemap_and_og_image(self):
         os.environ["SITE_URL"] = "https://example.org"
