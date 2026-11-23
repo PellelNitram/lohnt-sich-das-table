@@ -35,7 +35,7 @@ First row must contain these headers (extra columns are ignored):
 Google Forms names its first column `Timestamp`/`Zeitstempel`; rename the header cells in the sheet. Renaming a header in the sheet does not change the Form.
 `approved` takes `YYYY-MM-DD` or `DD.MM.YYYY`. Numbers may be written `3500`, `3.500` or `3.500,50`.
 
-`video_url`, `video_date` and `profession` are required; at least one income is required; proof links are optional. Invalid approved rows (e.g. net above gross, non-YouTube video, non-https links) are skipped and listed as warnings in the build log.
+`video_url`, `video_date` and `profession` are required; at least one income is required; proof links are optional. Invalid approved rows (e.g. net above gross, non-YouTube video, `http://` or other non-https links; links without a scheme get `https://` added) are skipped and listed as warnings in the build log.
 
 ## One-time setup
 

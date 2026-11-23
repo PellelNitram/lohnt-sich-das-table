@@ -37,7 +37,7 @@ Rules enforced by the build:
 
 - At least one of the two income fields is set. If both are set, net is not larger than gross.
 - Incomes are greater than 0 and at most 1,000,000.
-- `video_url` must be an https YouTube link. Proof URLs must be https links without credentials. No other schemes are accepted.
+- `video_url` must be a YouTube link (`youtube.com`, `www.youtube.com`, `m.youtube.com` or `youtu.be`). Proof URLs may point to any site. All links are published as `https://` links without credentials. A link submitted without a scheme (`youtu.be/abc`) gets `https://` prepended; `http://` and every other scheme (`javascript:`, `data:`, `ftp:` …) is rejected.
 - `video_date` and `approved_at` are never in the future.
 - Proof links are optional and are not checked for authenticity.
 

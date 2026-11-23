@@ -131,15 +131,23 @@ def clean_text(raw: str) -> str:
     return " ".join(_CONTROL_CHARS.sub(" ", raw).split())
 
 
+# "scheme:" at the start, but not "host:1234" (a port).
+_HAS_SCHEME = re.compile(r"^[a-z][a-z0-9+.-]*:(?!\d)", re.IGNORECASE)
+
+
 def _clean_https_url(raw: str, label: str) -> str | None:
     s = raw.strip()
     if not s:
         return None
     if len(s) > MAX_URL_LEN or any(c.isspace() or ord(c) < 32 for c in s):
-        raise RowError(f"{label} is not a valid https link")
+        raise RowError(f"{label} is not a valid link (too long or contains spaces)")
+    if "://" not in s and not _HAS_SCHEME.match(s):
+        s = "https://" + s  # "youtube.com/watch?v=x" -> https; other schemes are never upgraded
     m = re.match(r"^https://([^/?#]+)(?:[/?#].*)?$", s)
-    if not m or "@" in m[1]:
-        raise RowError(f"{label} must be an https link without credentials")
+    if not m:
+        raise RowError(f"{label} must be an https:// link")
+    if "@" in m[1]:
+        raise RowError(f"{label} must not contain credentials")
     return s
 
 
@@ -149,7 +157,7 @@ def clean_video_url(raw: str) -> str:
         raise RowError("video_url is empty")
     host = re.match(r"^https://([^/?#:]+)", s)[1].lower()
     if host not in ALLOWED_VIDEO_HOSTS:
-        raise RowError("video_url must be a YouTube link")
+        raise RowError("video_url must be a YouTube link (youtube.com or youtu.be)")
     return s
 
 

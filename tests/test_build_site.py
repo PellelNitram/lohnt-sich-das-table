@@ -88,6 +88,30 @@ class Validation(unittest.TestCase):
             with self.assertRaises(b.RowError, msg=bad):
                 self.parse(video_url=bad)
 
+    def test_missing_scheme_is_completed_with_https(self):
+        self.assertEqual(self.parse(video_url="youtube.com/watch?v=abc").video_url, "https://youtube.com/watch?v=abc")
+        self.assertEqual(self.parse(video_url="www.youtube.com/watch?v=abc").video_url,
+                         "https://www.youtube.com/watch?v=abc")
+        self.assertEqual(self.parse(video_url=" youtu.be/abc ").video_url, "https://youtu.be/abc")
+        self.assertEqual(self.parse(net_income_proof_url="example.com/p").net_income_proof_url, "https://example.com/p")
+        self.assertEqual(self.parse(net_income_proof_url="example.com:8443/p").net_income_proof_url,
+                         "https://example.com:8443/p")
+
+    def test_other_schemes_are_never_upgraded(self):
+        for bad in ("javascript:alert(1)", "data:text/html,x", "mailto:a@b.de", "http://youtu.be/abc",
+                    "ftp://youtu.be/abc", "//youtu.be/abc", "JavaScript:alert(1)"):
+            with self.assertRaises(b.RowError, msg=bad):
+                self.parse(video_url=bad)
+            with self.assertRaises(b.RowError, msg=bad):
+                self.parse(net_income_proof_url=bad)
+
+    def test_video_url_error_messages_name_the_problem(self):
+        for value, expected in (("https://google.com", "YouTube"), ("http://youtu.be/a", "https://"),
+                                ("https://u:p@youtu.be/a", "credentials"), ("youtu.be/a b", "spaces")):
+            with self.assertRaises(b.RowError) as ctx:
+                self.parse(video_url=value)
+            self.assertIn(expected, str(ctx.exception), value)
+
     def test_video_date_required_and_not_in_future(self):
         self.assertEqual(self.parse(video_date="15.10.2026").video_date, date(2026, 10, 15))
         for bad in ("", "soon", "2030-01-01"):
