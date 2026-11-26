@@ -29,7 +29,6 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
-from statistics import median
 from string import Template
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -529,8 +528,6 @@ def chart_data_json(entries: list[Entry]) -> str:
 
 def render_index(entries: list[Entry], now: datetime, *, sample: bool) -> str:
     esc = html.escape
-    gross = [e.gross_monthly_income_eur for e in entries if e.gross_monthly_income_eur is not None]
-    net = [e.net_monthly_income_eur for e in entries if e.net_monthly_income_eur is not None]
     last_update = max((e.approved_at for e in entries), default=None)
 
     form_url = _https_or_empty(os.environ.get("FORM_URL", ""))
@@ -567,8 +564,6 @@ def render_index(entries: list[Entry], now: datetime, *, sample: bool) -> str:
         rows=render_rows(entries),
         field_table=render_field_table(),
         count=len(entries),
-        median_gross=fmt_eur(median(gross)) if gross else "–",
-        median_net=fmt_eur(median(net)) if net else "–",
         last_update=fmt_date(last_update) if last_update else "–",
         built_at=now.strftime("%d.%m.%Y"),
         submit_button=submit_button,
