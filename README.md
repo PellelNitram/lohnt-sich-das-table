@@ -4,14 +4,14 @@ A public, community-sourced salary table (profession, gross and net monthly inco
 
 ```
 Google Form ──▶ Google Sheet ──▶ (manual: fill `approved`) ──▶ GitHub Actions ──▶ GitHub Pages
-                                                              weekly + on demand   static site + /api/v1/
+                                                              daily + on demand    static site + /api/v1/
 ```
 
 ## How it works
 
 1. People submit via a Google Form; answers land in a Google Sheet.
 2. Every few weeks, the maintainer reviews new rows and enters a date in the `approved` column. **Rows without a valid, non-future date are never rendered** – this keeps bot submissions off the site.
-3. A GitHub Actions workflow runs every Monday (and on demand) and builds `dist/` with `scripts/build_site.py` from the sheet's published CSV, then deploys to GitHub Pages.
+3. A GitHub Actions workflow runs daily at 03:00 UTC (and on demand) and builds `dist/` with `scripts/build_site.py` from the sheet's published CSV, then deploys to GitHub Pages.
 4. Only whitelisted fields are published. The submission timestamp and any other form columns (e.g. e-mail) are dropped.
 
 ## Local development
@@ -66,5 +66,5 @@ schema/schema.json      JSON Schema incl. the data version (source of truth for 
 data/sample.csv         fake data for local builds
 tests/                  unit tests (approval gate, validation, escaping, API shape)
 docs/api.md             API documentation
-.github/workflows/      weekly build + deploy
+.github/workflows/      daily build + deploy
 ```

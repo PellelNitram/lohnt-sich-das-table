@@ -1,6 +1,6 @@
 # API
 
-Static files, no authentication, no rate limit. Rebuilt weekly together with the site.
+Static files, no authentication, no rate limit. Rebuilt daily (03:00 UTC) together with the site.
 
 **Data version: 1.** The machine-readable definition is [`schema/schema.json`](../schema/schema.json) (JSON Schema, draft 2020-12). It is the source of truth and is published unchanged as `/api/v1/schema.json`. The version is defined only there (`schema_version`); the build derives the `/api/v<version>/` path from it.
 
@@ -46,7 +46,7 @@ Rules enforced by the build:
 ```json
 {
   "schema_version": "1",
-  "generated_at": "2026-11-23T04:17:02Z",
+  "generated_at": "2026-11-23T03:00:41Z",
   "count": 1,
   "entries": [
     {
