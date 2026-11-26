@@ -15,6 +15,7 @@ ${meta_tags}
   <div class="wrap nav">
     <a class="brand" href="/">Lohnt sich das<span>?</span></a>
     <nav class="nav-links">
+      <a class="link" href="#charts">Verteilung</a>
       <a class="link" href="#tabelle">Tabelle</a>
       <a class="link" href="#methode">Methode</a>
       <a class="link" href="#api">API</a>
@@ -42,6 +43,38 @@ ${meta_tags}
       <div class="stat"><div class="big">${median_net}</div><div class="lbl">Median Netto / Monat</div></div>
     </div>
 
+    <div id="charts" class="charts">
+      <h2 class="section-title">Verteilung</h2>
+      <div class="viz-controls">
+        <span class="viz-controls-label" id="bin-label">Klassenbreite</span>
+        <div class="chips" id="bin-chips" role="group" aria-labelledby="bin-label">
+          <button type="button" class="chip" data-bin="auto" aria-pressed="true">Auto</button>
+          <button type="button" class="chip" data-bin="250" aria-pressed="false">250 €</button>
+          <button type="button" class="chip" data-bin="500" aria-pressed="false">500 €</button>
+          <button type="button" class="chip" data-bin="1000" aria-pressed="false">1.000 €</button>
+        </div>
+      </div>
+      <div class="viz-grid2">
+        <figure class="viz-card">
+          <figcaption>Brutto pro Monat <small>Anzahl Einträge je Gehaltsklasse</small></figcaption>
+          <div id="hist-gross" class="viz-box"></div>
+        </figure>
+        <figure class="viz-card">
+          <figcaption>Netto pro Monat <small>Anzahl Einträge je Gehaltsklasse</small></figcaption>
+          <div id="hist-net" class="viz-box"></div>
+        </figure>
+      </div>
+
+      <h3 class="section-sub">Netto im Verhältnis zu Brutto</h3>
+      <figure class="viz-card">
+        <figcaption>Ein Punkt pro Eintrag mit Brutto- und Nettoangabe <small>Linien zeigen 50–80 % Netto-Quote</small></figcaption>
+        <div id="scatter" class="viz-box"></div>
+      </figure>
+      <p class="muted">Alle Werte stehen auch in der Tabelle unten.</p>
+    </div>
+  <script type="application/json" id="chart-data">${chart_data}</script>
+
+    <h2 class="section-title">Alle Einträge</h2>
     <div class="controls">
       <input type="search" id="search" placeholder="Beruf suchen …" aria-label="Beruf suchen">
     </div>
@@ -63,6 +96,7 @@ ${rows}
       </table>
     </div>
   </section>
+
 
   ${about_section}
 
@@ -112,6 +146,7 @@ ${field_table}
 </footer>
 
 <script src="/app.js" defer></script>
+<script src="/charts.js" defer></script>
 ${goatcounter}
 </body>
 </html>

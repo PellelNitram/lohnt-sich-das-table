@@ -516,6 +516,17 @@ def render_field_table() -> str:
     return "\n".join(rows)
 
 
+def chart_data_json(entries: list[Entry]) -> str:
+    """Minimal data for the charts, safe to embed in a <script type="application/json">."""
+    data = [
+        {"p": e.profession, "g": e.gross_monthly_income_eur, "n": e.net_monthly_income_eur}
+        for e in entries
+    ]
+    text = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    # Neutralise anything that could close the script element or start markup.
+    return text.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+
+
 def render_index(entries: list[Entry], now: datetime, *, sample: bool) -> str:
     esc = html.escape
     gross = [e.gross_monthly_income_eur for e in entries if e.gross_monthly_income_eur is not None]
@@ -568,6 +579,7 @@ def render_index(entries: list[Entry], now: datetime, *, sample: bool) -> str:
         meta_tags=render_meta_tags(site_url()),
         about_section=_about_section(about_url),
         hero_links=_hero_links(about_url, feedback_url, kofi_url, blog_url),
+        chart_data=chart_data_json(entries),
         footer_links=_footer_links(feedback_url, kofi_url, blog_url),
         feedback_section=_feedback_section(feedback_url, kofi_url),
         page_title=html.escape(PAGE_TITLE),

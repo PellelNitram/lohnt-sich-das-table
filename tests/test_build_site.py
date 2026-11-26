@@ -262,6 +262,24 @@ class Seo(unittest.TestCase):
             self.assertIn('og:image" content="https://example.org/og-image.png"', (out / "index.html").read_text())
 
 
+class Charts(unittest.TestCase):
+    def test_chart_data_is_minimal_and_safe_to_embed(self):
+        entries, _ = b.load_entries(sheet(line("</script><b>&x", "3000", "2000"), line("Koch", "", "1800")), TODAY)
+        text = b.chart_data_json(entries)
+        self.assertNotIn("<", text)
+        self.assertNotIn(">", text)
+        self.assertNotIn("&", text)
+        data = json.loads(text)
+        self.assertEqual({tuple(sorted(d)) for d in data}, {("g", "n", "p")})
+        self.assertIn({"p": "</script><b>&x", "g": 3000, "n": 2000}, data)
+        self.assertIn({"p": "Koch", "g": None, "n": 1800}, data)
+
+    def test_page_contains_chart_containers_and_data(self):
+        page = b.render_index([], datetime.now(timezone.utc), sample=False)
+        for needle in ('id="hist-gross"', 'id="hist-net"', 'id="scatter"', 'id="chart-data">[]<', "/charts.js"):
+            self.assertIn(needle, page)
+
+
 class Ci(unittest.TestCase):
     def test_workflow_forwards_every_env_var_the_build_reads(self):
         workflow = (ROOT / ".github" / "workflows" / "pages.yml").read_text()
