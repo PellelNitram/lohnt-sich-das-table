@@ -133,7 +133,8 @@
 
     const tickStep = Math.max(binW, niceStep((hi - lo) / Math.max(2, Math.floor(pw / 90))));
     for (let t = Math.ceil(lo / tickStep) * tickStep; t <= hi; t += tickStep) {
-      el("text", { x: x(t), y: height - m.b + 16, class: "viz-tick", "text-anchor": "middle" }, svg)
+      const anchor = x(t) > width - m.r - 24 ? "end" : x(t) < m.l + 24 ? "start" : "middle"; // keep edge labels inside
+      el("text", { x: x(t), y: height - m.b + 16, class: "viz-tick", "text-anchor": anchor }, svg)
         .textContent = axisEur(t, hi);
     }
     el("text", { x: width - m.r, y: height - 4, class: "viz-axis-title", "text-anchor": "end" }, svg)
