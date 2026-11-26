@@ -420,10 +420,21 @@ def _about_section(url: str) -> str:
     )
 
 
-def _about_hero_link(url: str) -> str:
-    if not url:
+def _hero_links(about_url: str, feedback_url: str, kofi_url: str, blog_url: str) -> str:
+    """Secondary links right under the submit button, so they are visible on first view."""
+    esc = html.escape
+    links = []
+    if about_url:
+        links.append(_link(about_url, "▶ Wie es dazu kam"))
+    if feedback_url:
+        links.append(f'<a href="{esc(feedback_url, quote=True)}" target="_blank" rel="noopener">Feedback geben ↗</a>')
+    if kofi_url:
+        links.append(f'<a href="{esc(kofi_url, quote=True)}" target="_blank" rel="noopener">☕ Ko-fi ↗</a>')
+    if blog_url:
+        links.append(f'<a href="{esc(with_utm(blog_url, "hero"), quote=True)}">Blog ↗</a>')
+    if not links:
         return ""
-    return f'<p class="hero-about">{_link(url, "▶ Wie es dazu kam")}</p>'
+    return '<p class="hero-links">' + '<span aria-hidden="true"> · </span>'.join(links) + "</p>"
 
 
 def _feedback_section(feedback_url: str, kofi_url: str) -> str:
@@ -556,7 +567,7 @@ def render_index(entries: list[Entry], now: datetime, *, sample: bool) -> str:
         schema_version=SCHEMA_VERSION,
         meta_tags=render_meta_tags(site_url()),
         about_section=_about_section(about_url),
-        about_hero_link=_about_hero_link(about_url),
+        hero_links=_hero_links(about_url, feedback_url, kofi_url, blog_url),
         footer_links=_footer_links(feedback_url, kofi_url, blog_url),
         feedback_section=_feedback_section(feedback_url, kofi_url),
         page_title=html.escape(PAGE_TITLE),

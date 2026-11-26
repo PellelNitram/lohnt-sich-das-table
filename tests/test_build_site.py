@@ -204,7 +204,8 @@ class Seo(unittest.TestCase):
         url = b._about_video_url("youtu.be/abc")
         self.assertEqual(url, "https://youtu.be/abc")
         self.assertIn(url, b._about_section(url))
-        self.assertIn("Wie es dazu kam", b._about_hero_link(url))
+        self.assertIn("Wie es dazu kam", b._hero_links(url, "", "", ""))
+        self.assertEqual(b._hero_links("", "", "", ""), "")
         for bad in ("https://evil.example/x", "javascript:alert(1)", "http://youtu.be/a"):
             self.assertEqual(b._about_video_url(bad), "", bad)
 
@@ -216,8 +217,8 @@ class Seo(unittest.TestCase):
         os.environ["KOFI_URL"] = "https://ko-fi.com/someone"
         page = b.render_index([], now, sample=False)
         self.assertIn('id="feedback"', page)
-        self.assertEqual(page.count('href="https://forms.gle/feedback"'), 2)  # section + footer
-        self.assertEqual(page.count('href="https://ko-fi.com/someone"'), 2)
+        self.assertEqual(page.count('href="https://forms.gle/feedback"'), 3)  # hero + section + footer
+        self.assertEqual(page.count('href="https://ko-fi.com/someone"'), 3)
         os.environ["KOFI_URL"] = "javascript:alert(1)"
         self.assertNotIn("javascript:", b.render_index([], now, sample=False))
 
@@ -247,7 +248,8 @@ class Seo(unittest.TestCase):
         page = b.render_index([], now, sample=False)
         self.assertIn('href="https://blog.example.org/?utm_', page)
         self.assertIn("Wie es dazu kam", page)
-        self.assertIn('class="hero-about"', page)
+        self.assertIn('class="hero-links"', page)
+        self.assertIn("utm_content=hero", page)
 
     def test_build_writes_robots_sitemap_and_og_image(self):
         os.environ["SITE_URL"] = "https://example.org"
