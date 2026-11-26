@@ -30,6 +30,8 @@ jobs:
         env:
           SHEET_CSV_URL: ${{ secrets.SHEET_CSV_URL }}
           FORM_URL: ${{ vars.FORM_URL }}
+          FEEDBACK_FORM_URL: ${{ vars.FEEDBACK_FORM_URL }}
+          KOFI_URL: ${{ vars.KOFI_URL }}
           BLOG_URL: ${{ vars.BLOG_URL }}
           ABOUT_VIDEO_URL: ${{ vars.ABOUT_VIDEO_URL }}
           SITE_URL: ${{ vars.SITE_URL }}

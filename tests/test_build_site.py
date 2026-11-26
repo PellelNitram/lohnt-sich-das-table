@@ -2,6 +2,7 @@ import csv
 import io
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -167,7 +168,7 @@ class DotEnv(unittest.TestCase):
 class Seo(unittest.TestCase):
     def setUp(self):
         self._env = dict(os.environ)
-        for k in ("SITE_URL", "BLOG_URL", "ABOUT_VIDEO_URL"):
+        for k in b.ENV_VARS:
             os.environ.pop(k, None)
 
     def tearDown(self):
@@ -207,6 +208,19 @@ class Seo(unittest.TestCase):
         for bad in ("https://evil.example/x", "javascript:alert(1)", "http://youtu.be/a"):
             self.assertEqual(b._about_video_url(bad), "", bad)
 
+    def test_feedback_and_kofi_links(self):
+        now = datetime.now(timezone.utc)
+        page = b.render_index([], now, sample=False)
+        self.assertNotIn('id="feedback"', page)
+        os.environ["FEEDBACK_FORM_URL"] = "https://forms.gle/feedback"
+        os.environ["KOFI_URL"] = "https://ko-fi.com/someone"
+        page = b.render_index([], now, sample=False)
+        self.assertIn('id="feedback"', page)
+        self.assertEqual(page.count('href="https://forms.gle/feedback"'), 2)  # section + footer
+        self.assertEqual(page.count('href="https://ko-fi.com/someone"'), 2)
+        os.environ["KOFI_URL"] = "javascript:alert(1)"
+        self.assertNotIn("javascript:", b.render_index([], now, sample=False))
+
     def test_with_utm(self):
         out = b.with_utm("https://lellep.xyz/blog/", "header")
         self.assertEqual(out, "https://lellep.xyz/blog/?utm_source=lohntsichdas&utm_medium=referral"
@@ -244,6 +258,21 @@ class Seo(unittest.TestCase):
             self.assertIn("<loc>https://example.org/</loc>", (out / "sitemap.xml").read_text())
             self.assertTrue((out / "og-image.png").read_bytes().startswith(b"\x89PNG"))
             self.assertIn('og:image" content="https://example.org/og-image.png"', (out / "index.html").read_text())
+
+
+class Ci(unittest.TestCase):
+    def test_workflow_forwards_every_env_var_the_build_reads(self):
+        workflow = (ROOT / ".github" / "workflows" / "pages.yml").read_text()
+        source = (ROOT / "scripts" / "build_site.py").read_text()
+        read = set(re.findall(r'os\.environ\.get\("([A-Z_]+)"', source))
+        self.assertEqual(read, set(b.ENV_VARS), "keep ENV_VARS in sync with os.environ.get calls")
+        for name in b.ENV_VARS:
+            self.assertRegex(workflow, rf"\n\s+{name}: \$\{{\{{ (vars|secrets)\.{name} \}}\}}", name)
+
+    def test_workflow_only_calls_make(self):
+        workflow = (ROOT / ".github" / "workflows" / "pages.yml").read_text()
+        runs = re.findall(r"^\s+run: (.+)$", workflow, re.MULTILINE)
+        self.assertEqual(runs, ["make test", "make build-live"])
 
 
 class Output(unittest.TestCase):

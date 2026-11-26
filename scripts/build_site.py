@@ -361,6 +361,19 @@ def render_sitemap(base: str, lastmod: date) -> str:
     )
 
 
+# Every environment variable the build reads. A test checks that the CI workflow
+# forwards each of them, so local and CI builds see the same configuration.
+ENV_VARS = (
+    "SHEET_CSV_URL",
+    "SITE_URL",
+    "FORM_URL",
+    "FEEDBACK_FORM_URL",
+    "BLOG_URL",
+    "ABOUT_VIDEO_URL",
+    "KOFI_URL",
+    "GOATCOUNTER_URL",
+)
+
 UTM_SOURCE = "lohntsichdas"
 UTM_MEDIUM = "referral"
 UTM_CAMPAIGN = "salary-table"
@@ -411,6 +424,39 @@ def _about_hero_link(url: str) -> str:
     if not url:
         return ""
     return f'<p class="hero-about">{_link(url, "▶ Wie es dazu kam")}</p>'
+
+
+def _feedback_section(feedback_url: str, kofi_url: str) -> str:
+    if not (feedback_url or kofi_url):
+        return ""
+    esc = html.escape
+    parts = []
+    if feedback_url:
+        parts.append(
+            "<p>Idee, Kritik oder Fehler gefunden? "
+            f'<a class="btn" href="{esc(feedback_url, quote=True)}" target="_blank" rel="noopener">Feedback geben ↗</a></p>'
+        )
+    if kofi_url:
+        parts.append(
+            "<p>Die Seite ist kostenlos und werbefrei. Wenn sie dir hilft, freue ich mich über einen Kaffee: "
+            f'<a class="btn btn-secondary" href="{esc(kofi_url, quote=True)}" target="_blank" rel="noopener">☕ Ko-fi ↗</a></p>'
+        )
+    return (
+        '<section class="prose" id="feedback"><div class="wrap">'
+        "<h2>Feedback &amp; Unterstützung</h2>" + "".join(parts) + "</div></section>"
+    )
+
+
+def _footer_links(feedback_url: str, kofi_url: str, blog_url: str) -> str:
+    esc = html.escape
+    links = []
+    if feedback_url:
+        links.append(f'<a href="{esc(feedback_url, quote=True)}" target="_blank" rel="noopener">Feedback ↗</a>')
+    if kofi_url:
+        links.append(f'<a href="{esc(kofi_url, quote=True)}" target="_blank" rel="noopener">Ko-fi ↗</a>')
+    if blog_url:
+        links.append(f'<a href="{esc(with_utm(blog_url, "footer"), quote=True)}">Mehr auf meinem Blog ↗</a>')
+    return "".join(f" · {link}" for link in links)
 
 
 def _link(url: str, label: str) -> str:
@@ -484,11 +530,8 @@ def render_index(entries: list[Entry], now: datetime, *, sample: bool) -> str:
         if gc_url
         else ""
     )
-    footer_blog = (
-        f' · <a href="{esc(with_utm(blog_url, "footer"), quote=True)}">Mehr auf meinem Blog ↗</a>'
-        if blog_url
-        else ""
-    )
+    feedback_url = _https_or_empty(os.environ.get("FEEDBACK_FORM_URL", ""))
+    kofi_url = _https_or_empty(os.environ.get("KOFI_URL", ""))
     about_url = _about_video_url(os.environ.get("ABOUT_VIDEO_URL", ""))
     sample_banner = (
         '<p class="note"><strong>Beispieldaten.</strong> Dieser Build nutzt <code>data/sample.csv</code> '
@@ -514,7 +557,8 @@ def render_index(entries: list[Entry], now: datetime, *, sample: bool) -> str:
         meta_tags=render_meta_tags(site_url()),
         about_section=_about_section(about_url),
         about_hero_link=_about_hero_link(about_url),
-        footer_blog=footer_blog,
+        footer_links=_footer_links(feedback_url, kofi_url, blog_url),
+        feedback_section=_feedback_section(feedback_url, kofi_url),
         page_title=html.escape(PAGE_TITLE),
         page_description=html.escape(PAGE_DESCRIPTION, quote=True),
     )

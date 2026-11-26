@@ -22,7 +22,7 @@ make serve    # build from data/sample.csv (fake data) and serve on http://local
 make test
 ```
 
-To build from the real sheet locally, put `SHEET_CSV_URL=...` (and optionally `FORM_URL`, `BLOG_URL`, `ABOUT_VIDEO_URL`, `GOATCOUNTER_URL`, `SITE_URL`) in a git-ignored `.env` and run `make serve-live`. The script reads `.env` itself, so no quoting is needed; real environment variables take precedence.
+To build from the real sheet locally, put `SHEET_CSV_URL=...` (and optionally `FORM_URL`, `FEEDBACK_FORM_URL`, `KOFI_URL`, `BLOG_URL`, `ABOUT_VIDEO_URL`, `GOATCOUNTER_URL`, `SITE_URL`) in a git-ignored `.env` and run `make serve-live`. The script reads `.env` itself, so no quoting is needed; real environment variables take precedence.
 
 **Local and CI run the same commands.** The workflow runs `make test` and `make build-live`, nothing else. Locally, the same commands read `.env` instead of GitHub's secrets. If CI breaks, reproduce it with `make test && make build-live`.
 
@@ -44,6 +44,8 @@ Google Forms names its first column `Timestamp`/`Zeitstempel`; rename the header
    - secret `SHEET_CSV_URL` (required)
    - variables (all optional; each hides its feature when unset):
      - `FORM_URL`: submit button
+     - `FEEDBACK_FORM_URL`: link to a free-text feedback form (section + footer)
+     - `KOFI_URL`: Ko-fi support link (section + footer)
      - `BLOG_URL`: blog link in header and footer
      - `ABOUT_VIDEO_URL`: YouTube link for the "Wie es dazu kam" section
      - `GOATCOUNTER_URL`: visitor counter, e.g. `https://<name>.goatcounter.com/count`
