@@ -373,6 +373,8 @@ ENV_VARS = (
     "GOATCOUNTER_URL",
 )
 
+BLOG_LABEL = "Martin's Blog ↗"  # static text, used in header, hero and footer
+
 UTM_SOURCE = "lohntsichdas"
 UTM_MEDIUM = "referral"
 UTM_CAMPAIGN = "salary-table"
@@ -408,17 +410,6 @@ def _about_video_url(raw_url: str) -> str:
         return ""
 
 
-def _about_section(url: str) -> str:
-    if not url:
-        return ""
-    return (
-        '<section class="prose" id="hintergrund"><div class="wrap">'
-        "<h2>Wie es dazu kam</h2>"
-        f"<p>Warum es diese Seite gibt, erkläre ich in einem Video: {_link(url, 'Video ansehen ↗')}</p>"
-        "</div></section>"
-    )
-
-
 def _hero_links(about_url: str, feedback_url: str, kofi_url: str, blog_url: str) -> str:
     """Secondary links right under the submit button, so they are visible on first view."""
     esc = html.escape
@@ -430,7 +421,7 @@ def _hero_links(about_url: str, feedback_url: str, kofi_url: str, blog_url: str)
     if kofi_url:
         links.append(f'<a href="{esc(kofi_url, quote=True)}" target="_blank" rel="noopener">☕ Ko-fi ↗</a>')
     if blog_url:
-        links.append(f'<a href="{esc(with_utm(blog_url, "hero"), quote=True)}">Blog ↗</a>')
+        links.append(f'<a href="{esc(with_utm(blog_url, "hero"), quote=True)}">{BLOG_LABEL}</a>')
     if not links:
         return ""
     return '<p class="hero-links">' + '<span aria-hidden="true"> · </span>'.join(links) + "</p>"
@@ -465,7 +456,7 @@ def _footer_links(feedback_url: str, kofi_url: str, blog_url: str) -> str:
     if kofi_url:
         links.append(f'<a href="{esc(kofi_url, quote=True)}" target="_blank" rel="noopener">Ko-fi ↗</a>')
     if blog_url:
-        links.append(f'<a href="{esc(with_utm(blog_url, "footer"), quote=True)}">Mehr auf meinem Blog ↗</a>')
+        links.append(f'<a href="{esc(with_utm(blog_url, "footer"), quote=True)}">{BLOG_LABEL}</a>')
     return "".join(f" · {link}" for link in links)
 
 
@@ -540,7 +531,7 @@ def render_index(entries: list[Entry], now: datetime, *, sample: bool) -> str:
         else ""
     )
     blog_link = (
-        f'<a class="link" href="{esc(with_utm(blog_url, "header"), quote=True)}">Blog ↗</a>'
+        f'<a class="link" href="{esc(with_utm(blog_url, "header"), quote=True)}">{BLOG_LABEL}</a>'
         if blog_url
         else ""
     )
@@ -572,7 +563,6 @@ def render_index(entries: list[Entry], now: datetime, *, sample: bool) -> str:
         sample_banner=sample_banner,
         schema_version=SCHEMA_VERSION,
         meta_tags=render_meta_tags(site_url()),
-        about_section=_about_section(about_url),
         hero_links=_hero_links(about_url, feedback_url, kofi_url, blog_url),
         chart_data=chart_data_json(entries),
         footer_links=_footer_links(feedback_url, kofi_url, blog_url),

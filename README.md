@@ -46,8 +46,8 @@ Google Forms names its first column `Timestamp`/`Zeitstempel`; rename the header
      - `FORM_URL`: submit button
      - `FEEDBACK_FORM_URL`: link to a free-text feedback form (section + footer)
      - `KOFI_URL`: Ko-fi support link (section + footer)
-     - `BLOG_URL`: blog link in header and footer
-     - `ABOUT_VIDEO_URL`: YouTube link for the "Wie es dazu kam" section
+     - `BLOG_URL`: "Martin's Blog" link in header, hero and footer (with UTM tags)
+     - `ABOUT_VIDEO_URL`: YouTube link shown as "▶ Wie es dazu kam" under the submit button
      - `GOATCOUNTER_URL`: visitor counter, e.g. `https://<name>.goatcounter.com/count`
      - `SITE_URL`: absolute site URL for the sitemap and Open Graph tags; defaults to the domain in `CNAME`
 3. **Pages**: Settings → Pages → Source: *GitHub Actions*.

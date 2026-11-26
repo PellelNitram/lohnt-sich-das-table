@@ -200,10 +200,9 @@ class Seo(unittest.TestCase):
         self.assertIn("<lastmod>2026-11-23</lastmod>", xml)
 
     def test_about_video_url_and_section(self):
-        self.assertEqual(b._about_section(b._about_video_url("")), "")
+        self.assertEqual(b._about_video_url(""), "")
         url = b._about_video_url("youtu.be/abc")
         self.assertEqual(url, "https://youtu.be/abc")
-        self.assertIn(url, b._about_section(url))
         self.assertIn("Wie es dazu kam", b._hero_links(url, "", "", ""))
         self.assertEqual(b._hero_links("", "", "", ""), "")
         for bad in ("https://evil.example/x", "javascript:alert(1)", "http://youtu.be/a"):
@@ -241,13 +240,15 @@ class Seo(unittest.TestCase):
     def test_page_has_optional_links_only_when_configured(self):
         now = datetime.now(timezone.utc)
         page = b.render_index([], now, sample=False)
-        self.assertNotIn("Mehr auf meinem Blog", page)
+        self.assertNotIn("Martin's Blog", page)
         self.assertNotIn("Wie es dazu kam", page)
         os.environ["BLOG_URL"] = "https://blog.example.org/"
         os.environ["ABOUT_VIDEO_URL"] = "https://youtu.be/abc"
         page = b.render_index([], now, sample=False)
         self.assertIn('href="https://blog.example.org/?utm_', page)
         self.assertIn("Wie es dazu kam", page)
+        self.assertNotIn('id="hintergrund"', page)  # video is only linked from the hero
+        self.assertEqual(page.count("Martin's Blog ↗"), 3)  # header + hero + footer
         self.assertIn('class="hero-links"', page)
         self.assertIn("utm_content=hero", page)
 
