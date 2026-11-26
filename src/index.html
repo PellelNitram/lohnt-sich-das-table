@@ -15,8 +15,8 @@ ${meta_tags}
   <div class="wrap nav">
     <a class="brand" href="/">Lohnt sich das<span>?</span></a>
     <nav class="nav-links">
-      <a class="link" href="#charts">Verteilung</a>
       <a class="link" href="#tabelle">Tabelle</a>
+      <a class="link" href="#charts">Grafisch</a>
       <a class="link" href="#methode">Methode</a>
       <a class="link" href="#api">API</a>
       ${blog_link}
@@ -37,8 +37,30 @@ ${meta_tags}
 
   <section class="wrap" id="tabelle">
     ${sample_banner}
+    <h2 class="section-title">Alle Einträge</h2>
+    <div class="controls">
+      <input type="search" id="search" placeholder="Beruf suchen …" aria-label="Beruf suchen">
+    </div>
+
+    <div class="table-card">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th data-key="profession">Beruf <span class="arrow"></span></th>
+            <th data-key="gross" class="num">Brutto / Monat <span class="arrow"></span></th>
+            <th data-key="net" class="num">Netto / Monat <span class="arrow"></span></th>
+            <th>Video</th>
+            <th data-key="date" class="num sorted">Video vom <span class="arrow">▼</span></th>
+          </tr>
+        </thead>
+        <tbody>
+${rows}
+        </tbody>
+      </table>
+    </div>
+
     <div id="charts" class="charts">
-      <h2 class="section-title">Verteilung</h2>
+      <h2 class="section-title">Grafisch</h2>
       <div class="viz-controls">
         <span class="viz-controls-label" id="bin-label">Klassenbreite</span>
         <div class="chips" id="bin-chips" role="group" aria-labelledby="bin-label">
@@ -64,31 +86,9 @@ ${meta_tags}
         <figcaption>Ein Punkt pro Eintrag mit Brutto- und Nettoangabe <small>Linien zeigen 50–80 % Netto-Quote</small></figcaption>
         <div id="scatter" class="viz-box"></div>
       </figure>
-      <p class="muted">Alle Werte stehen auch in der Tabelle unten.</p>
+      <p class="muted">Alle Werte stehen auch in der Tabelle oben.</p>
     </div>
-  <script type="application/json" id="chart-data">${chart_data}</script>
-
-    <h2 class="section-title">Alle Einträge</h2>
-    <div class="controls">
-      <input type="search" id="search" placeholder="Beruf suchen …" aria-label="Beruf suchen">
-    </div>
-
-    <div class="table-card">
-      <table id="tbl">
-        <thead>
-          <tr>
-            <th data-key="profession">Beruf <span class="arrow"></span></th>
-            <th data-key="gross" class="num">Brutto / Monat <span class="arrow"></span></th>
-            <th data-key="net" class="num">Netto / Monat <span class="arrow"></span></th>
-            <th>Video</th>
-            <th data-key="date" class="num sorted">Video vom <span class="arrow">▼</span></th>
-          </tr>
-        </thead>
-        <tbody>
-${rows}
-        </tbody>
-      </table>
-    </div>
+    <script type="application/json" id="chart-data">${chart_data}</script>
   </section>
 
 
